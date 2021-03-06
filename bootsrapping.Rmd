@@ -1,0 +1,106 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+#Problem Set 1 Answers, Egemen Pamukcu (egemenpamukcu)
+```{r}
+library(knitr)
+```
+
+
+1. The first model, which looks like OLS linear regression, is low in complexity and flexibility when compared to the second model. In the second model, higher complexity leads to an overfitting of the model, therefore, when the model is used on a different set of data to predict y, it would not be as good of a fit as it looks on the training data, indicating high variance. The first model is an example of oversimplification, the relationship between dependent and independent variable does not seem to be linear, therefore, the first model has relatively higher bias when compared to the second as it assumes a linear relationship.
+
+2. After a certain degree of flexibility, the training and testing error curves start to diverge, with the test error curve taking a classic 'U' shape. This is expected because as we decrease the number of neighbours therefore increase flexibility, our model starts to depend more and more on the training data. The training error curve in general has a declining trend because the increase in complexity leads to overfitting which surface as lower deviation from the model's expected (predicted) classification. But when testing data is introduced, for K below ~10, since the model is overfitted to training data, it is not good at classifying new observations and, as a result, test error increase. 
+
+3. In general, with a very large n, a more flexible method would perform better. Since the number of observations are very high, the risk of overfitting is lower than usual, therefore, the model performance would expected to be better.
+
+4. Low n means that a model high in flexibility would be prone to overfitting the model to a small number of observations, which would lead to lower performance when the model is applied to different data. 
+
+5. Flexible would be better. If we think in terms of regression, the least flexible method would be linear regression. If the relationship between the response and predictor variables are highly non-linear, the linear regression  would not be the best model to use as it assumes a linear relationships between variables. A more flexible model with upper degree polynomials would be a better fit and explain more about the relationship between variables.
+
+6. Minimizing the training mean squared error can mean making the model unjustifiably complex and flexible. This, in turn, can lead the model to see the noise in the data as signal and try to capture every nuance on the training data. When we apply the model on other data, it would not perform as well as it did on the training data meaning the model was overfitting the training data. 
+
+7.
+```{r}
+library(tidyverse)
+library(here)
+anes_full <- read_csv('data/anes_2016.csv')
+```
+
+```{r}
+anes <- anes_full %>% 
+  mutate(ftobama = ifelse(!between(ftobama, 0, 100), NA, ftobama),
+         fttrump = ifelse(!between(fttrump, 0, 100), NA, fttrump)) %>% 
+  na.omit() %>% 
+  select(ftobama, fttrump)
+```
+
+```{r}
+set.seed(1234)
+bootstraps <- list()
+for(i in 1:2){
+  b <- sample(length(anes$ftobama), length(anes$ftobama), replace = T)
+  bootstraps[[i]] = anes[b, ]
+}
+```
+
+```{r}
+bootstraps
+```
+
+```{r}
+ggplot() +
+  geom_density(data = bootstraps[[1]], aes(x = fttrump, color = 'Bootstrap 1')) +
+  geom_density(data = bootstraps[[2]], aes(x = fttrump, color = 'Bootstrap 2')) +
+  geom_density(data = anes, aes(x = fttrump, color = 'Original'))
+
+ggplot() +
+  geom_density(data = bootstraps[[1]], aes(x = ftobama, color = 'Bootstrap 1')) +
+  geom_density(data = bootstraps[[2]], aes(x = ftobama, color = 'Bootstrap 2')) +
+  geom_density(data = anes, aes(x = ftobama, color = 'Original'))
+```
+
+```{r}
+library(patchwork)
+og <- ggplot(data = anes, aes(fttrump, ftobama)) +
+  geom_point() +
+  labs(title = 'Original')
+
+bs1 <- ggplot(data = bootstraps[[1]], aes(fttrump, ftobama)) +
+  geom_point() + 
+  labs(title = 'Bootstrap 1')
+
+bs2 <- ggplot(data = bootstraps[[2]], aes(fttrump, ftobama)) +
+  geom_point() + 
+  labs(title = 'Bootstrap 2')
+
+og + bs1 + bs2 + plot_layout(widths = c(2,2))
+```
+
+8. The density plots look fairly similar as we expected from a sampling with replacement using with bootstrapped observation count being equal to the original sample's. Doing the same without replacement would give us the same sample as the original, therefore the density plots would be exactly the same, since we replace observations as we are drawing from the sample, there is some variation in the plots (about %63.2 of the observations in the original are included in bootstrapped samples). The scatter plots for bootstrapped samples look less populated than the original sample because, although the sample sizes are the same (88), some observations are repeated in bootstrapped samples, therefore the dots on the plot exactly overlap, making it look less populated. However, there does not seem to be a big difference in terms of the general dispersion of the scatter plot because the bootstraps more or less represent the population (which in this case is the original sample). 
+
+
+```{r}
+library(boot)
+med <- function(d, i){
+  d2 <- d[i,]
+  return(median(d2$ftobama))
+}
+
+res <- boot(data = anes, statistic = med, R = 1000)
+```
+
+
+```{r}
+boot.ci(boot.out = res, conf = 0.95)
+```
+
+9. The 95% confidence interval for the median feelings towards Obama is (10.10, 63.84) which means we can be 95% confident that the real median value will be between 10.10 and 63.84. This range seems high for a 0-100 feeling thermometer, which can imply that there is considerable uncertainty when it comes to the median statistic for ftobama feature. 
+
+10. The boostrapping approach to resampling has samples equal to the original sample in size. Whereas in cross validation one divides the original sample into smaller portions to use for training and testing. Also, bootstrapping draws the samples with replacement, meaning one observation in the original sample can appear multiple times in the samples generated through bootstrapping, while in cross validation, samples are drawn without replacement. They are similar in that both approaches are trying to make the most of the existing sample by reusing it. Since in social sciences collecting new data is cumbersome and often not possible, these methods allow to test the model or sample characteristics without requiring new data. From a computational modeling perspective, cross validation is a useful method that allows us to test the performance of a model by using all at least once in both test and training sets, therefore, mitigating the risk of overfitting. And bootstrapping is useful in quantifying any ancertainty associated with an estimator by treating the original sample as a population by itself, and its flexibility allows it to be used with any method.
+
+
+
+
+
